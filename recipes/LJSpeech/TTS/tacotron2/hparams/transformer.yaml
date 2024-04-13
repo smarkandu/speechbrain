@@ -1,0 +1,158 @@
+# ############################################################################
+# Model: E2E with attention-based Machine Translation
+# Encoder: Transformer
+# Decoder: Transformer
+# Tokens: Chars
+# losses: NLL
+# Training: Ignotush
+##############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are instantiated
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Folder set up
+output_folder: !ref results/Transformer/<seed>
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+cer_file: !ref <output_folder>/test_cer.txt # file were to store the final character error rate on the test set.
+
+# Path where data manifest files are stored
+train_annotation: train.csv
+valid_annotation: valid.csv
+test_annotation: test.csv
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# Training parameters
+number_of_epochs: 100
+batch_size: 100
+lr: 0.01
+lr_final: 0.001
+
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+
+# Vocabulary sizes
+voc_size_english: 31
+voc_size_ignotush: 32
+
+# Indexes for begin-of-sentence (bos)
+# and end-of-sentence (eos)
+blank_index: 0 # This special tokes is for padding
+bos_index: 1
+eos_index: 2
+
+# Encoder Parameters
+d_model: 64
+nhead: 4
+num_encoder_layers: 1
+num_decoder_layers: 1
+dim_feedforward: 64
+dropout: 0.1
+
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+
+Seq2SeqTransformer: !new:torch.nn.Transformer
+    d_model: !ref <d_model>
+    nhead: !ref <nhead>
+    num_encoder_layers: !ref <num_encoder_layers>
+    num_decoder_layers: !ref <num_decoder_layers>
+    dim_feedforward: !ref <dim_feedforward>
+    dropout: !ref <dropout>
+    batch_first: True
+
+
+encoder_emb: !new:torch.nn.Embedding
+    num_embeddings: !ref <voc_size_ignotush>
+    embedding_dim: !ref <d_model>
+    padding_idx: !ref <blank_index>
+
+
+pos_emb_enc: !new:speechbrain.lobes.models.transformer.Transformer.PositionalEncoding
+    input_size: !ref <d_model>
+    max_len: 200
+
+pos_emb_dec: !new:speechbrain.lobes.models.transformer.Transformer.PositionalEncoding
+    input_size: !ref <d_model>
+    max_len: 200
+
+decoder_emb: !new:torch.nn.Embedding
+    num_embeddings: !ref <voc_size_english>
+    embedding_dim: !ref <d_model>
+    padding_idx: !ref <blank_index>
+
+# Linear transformation on the top of the decoder.
+seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <d_model>
+    n_neurons: !ref <voc_size_english>
+
+
+# Masks
+lookahead_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_lookahead_mask
+padding_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_key_padding_mask
+
+
+# Final softmax (for log posteriors computation).
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class
+modules:
+    Seq2SeqTransformer: !ref <Seq2SeqTransformer>
+    encoder_emb: !ref <encoder_emb>
+    pos_emb_enc: !ref <pos_emb_enc>
+    decoder_emb: !ref <decoder_emb>
+    pos_emb_dec: !ref <pos_emb_dec>
+    seq_lin: !ref <seq_lin>
+
+
+# Gathering all the submodels in a single model object.
+model: !new:torch.nn.ModuleList
+    - - !ref <Seq2SeqTransformer>
+      - !ref <encoder_emb>
+      - !ref <seq_lin>
+      - !ref <decoder_emb>
+
+
+# This function manages learning rate annealing over the epochs.
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <lr>
+    final_value: !ref <lr_final>
+    epoch_count: !ref <number_of_epochs>
+
+# This optimizer will be constructed by the Brain class after all parameters
+# are moved to the correct device. Then it will be added to the checkpointer.
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        counter: !ref <epoch_counter>
+
