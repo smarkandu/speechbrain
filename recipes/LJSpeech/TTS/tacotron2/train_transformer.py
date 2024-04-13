@@ -285,8 +285,8 @@ def dataio_prepare(hparams):
     label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     for dataset in data_info:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=data_info[dataset],
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=data_info[dataset],
             dynamic_items=[ignotush_text_pipeline, english_text_pipeline],
             output_keys=[
                 "id",
