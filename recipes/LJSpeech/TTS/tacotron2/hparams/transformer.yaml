@@ -12,11 +12,16 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folder set up
-output_folder: !ref results/Transformer/<seed>
+output_folder: !PLACEHOLDER
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 cer_file: !ref <output_folder>/test_cer.txt # file were to store the final character error rate on the test set.
+
+#################################
+# Data files and pre-processing #
+#################################
+data_folder: !PLACEHOLDER # e.g, /localscratch/ljspeech
 
 # Path where data manifest files are stored
 train_annotation: train.csv
