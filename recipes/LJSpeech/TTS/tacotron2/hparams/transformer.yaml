@@ -38,9 +38,9 @@ progress_batch_sample_size: 3
 #################################
 data_folder: !PLACEHOLDER # e.g, /localscratch/ljspeech
 
-train_json: !ref <data_folder>/train.json
-valid_json: !ref <data_folder>/valid.json
-test_json: !ref <data_folder>/test.json
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
 
 splits: ["train", "valid", "test"]
 split_ratio: [80, 10, 10]
