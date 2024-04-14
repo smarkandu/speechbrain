@@ -60,15 +60,16 @@ class Tacotron2Brain(sb.Brain):
 
         text_padded, input_lengths, _, _, _ = inputs
         # text_padded, input_lengths, mel_padded, max_len, output_lengths
-        f = open("steve.txt", "a")
-        f.write("text_padded shape: " + str(text_padded.float().shape))
-        f.close()
-
         # max_input_length = input_lengths.max().item()
 
         # Reshape input to satisfy pre-encoder
         input = text_padded.float()
+        f = open("steve.txt", "a")
+        f.write("input shape before: " + input.shape + "\n")
         input = input.reshape(input.shape[0], 1, input.shape[1])
+        f.write("input shape after: " + input.shape + "\n")
+        f.close()
+
         return self.modules.model(input)
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
