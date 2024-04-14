@@ -61,7 +61,7 @@ class Tacotron2Brain(sb.Brain):
         _, input_lengths, _, _, _ = inputs
 
         max_input_length = input_lengths.max().item()
-        return self.modules.model(inputs, alignments_dim=max_input_length)
+        return self.modules.model(inputs)
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """At the end of the optimizer step, apply noam annealing."""
