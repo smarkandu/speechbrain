@@ -56,7 +56,7 @@ text_cleaners: ['english_cleaners']
 ################################
 sample_rate: 22050
 hop_length: 256
-win_length: 1024
+win_length: 312
 n_mel_channels: 80
 n_fft: 312
 mel_fmin: 0.0
