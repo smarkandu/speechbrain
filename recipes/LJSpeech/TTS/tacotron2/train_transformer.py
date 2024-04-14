@@ -28,35 +28,17 @@ class Translate(sb.Brain):
     """Class that manages the training loop. See speechbrain.core.Brain."""
 
     def compute_forward(self, batch, stage):
-        """Runs all the computation of the CTC + seq2seq ASR. It returns the
-        posterior probabilities of the CTC and seq2seq networks.
-
-        Arguments
-        ---------
-        batch : PaddedBatch
-            This batch object contains all the relevant tensors for computation.
-        stage : sb.Stage
-            One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
-
-        Returns
-        -------
-        predictions : torch.tensor
-            Log-probabilities predicted by the decoder.
-
-        At validation/test time, it returns the predicted tokens as well.
-        """
         # We first move the batch to the appropriate device.
         # Your code here. Aim for 1 line.
         batch = batch.to(self.device)
-
-        # Unpacking ignotush_encoded_chars and english_encoded_chars_bos
-        # Your code here. Aim for 1 line.
-        enc_ignotush, inp_lens = batch.ignotush_encoded_chars
-        enc_english_bos,  out_lens = batch.english_encoded_chars_bos
+        effective_batch = self.batch_to_device(batch)
+        inputs, y, num_items, _, _ = effective_batch
+        _, input_lengths, _, _, _ = inputs
+        max_input_length = input_lengths.max().item()
 
         # Input embeddings
         # Your code here. Aim for 1 line.
-        enc_emb = self.modules.encoder_emb(enc_ignotush)
+        enc_emb = self.modules.encoder_emb(inputs)
 
         # Positional Embeddings
         # Your code here. Aim for 1 line.
@@ -217,122 +199,36 @@ class Translate(sb.Brain):
 
 
 def dataio_prepare(hparams):
-    """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions.
-
-
-    Arguments
-    ---------
-    hparams : dict
-        This dictionary is loaded from the `train.yaml` file, and it includes
-        all the hyperparameters needed for dataset construction and loading.
-
-    Returns
-    -------
-    datasets : dict
-        Dictionary containing "train", "valid", and "test" keys that correspond
-        to the DynamicItemDataset objects.
-    """
-    # Define text processing pipeline. We start from the raw text and then
-    # split it into characters. The tokens with BOS are used for feeding
-    # the decoder during training (right shifr), the tokens with EOS
-    # are used for computing the cost function.
-    @sb.utils.data_pipeline.takes("english")
-    @sb.utils.data_pipeline.provides(
-        "english_words",
-        "english_chars",
-        "english_encoded_chars_lst",
-        "english_encoded_chars",
-        "english_encoded_chars_eos",
-        "english_encoded_chars_bos",
+    # Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav", "label")
+    @sb.utils.data_pipeline.provides("mel_text_pair")
+    def audio_pipeline(wav, label):
+        text_seq = torch.IntTensor(
+            text_to_sequence(label, hparams["text_cleaners"])
         )
-    def ignotush_text_pipeline(english):
-        """Processes the transcriptions to generate proper labels"""
-        yield english
-        english_chars = list(english)
-        yield english_chars
-        english_encoded_chars_lst = label_encoder.encode_sequence(english_chars)
-        yield english_encoded_chars_lst
-        english_encoded_chars = torch.LongTensor(english_encoded_chars_lst)
-        yield english_encoded_chars
-        english_encoded_chars_eos = torch.LongTensor(label_encoder.append_eos_index(english_encoded_chars_lst))
-        yield english_encoded_chars_eos
-        english_encoded_chars_bos = torch.LongTensor(label_encoder.prepend_bos_index(english_encoded_chars_lst))
-        yield english_encoded_chars_bos
 
-    @sb.utils.data_pipeline.takes("ignotush")
-    @sb.utils.data_pipeline.provides("ignotush_words", "ignotush_chars", "ignotush_encoded_chars")
-    def english_text_pipeline(ignotush):
-        """Processes the transcriptions to generate proper labels"""
-        yield ignotush
-        ignotush_chars = list(ignotush)
-        yield ignotush_chars
-        ignotush_encoded_chars = torch.LongTensor(input_encoder.encode_sequence(ignotush_chars))
-        yield ignotush_encoded_chars
+        audio = sb.dataio.dataio.read_audio(wav)
+        mel = hparams["mel_spectogram"](audio=audio)
 
-    # Define datasets from json data manifest file
-    # Define datasets sorted by ascending lengths for efficiency
+        len_text = len(text_seq)
+
+        return text_seq, mel, len_text
+
     datasets = {}
     data_info = {
-        "train": hparams["train_annotation"],
-        "valid": hparams["valid_annotation"],
-        "test": hparams["test_annotation"],
+        "train": hparams["train_json"],
+        "valid": hparams["valid_json"],
+        "test": hparams["test_json"],
     }
-
-    # The label encoder will assign a different integer to each element
-    # in the output vocabulary
-    input_encoder = sb.dataio.encoder.CTCTextEncoder()
-    label_encoder = sb.dataio.encoder.CTCTextEncoder()
-
-    for dataset in data_info:
+    for dataset in hparams["splits"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=data_info[dataset],
-            dynamic_items=[ignotush_text_pipeline, english_text_pipeline],
-            output_keys=[
-                "id",
-                "english_words",
-                "english_chars",
-                "english_encoded_chars",
-                "english_encoded_chars_eos",
-                "english_encoded_chars_bos",
-                "ignotush_words",
-                "ignotush_chars",
-                "ignotush_encoded_chars",
-            ],
+            replacements={"data_root": hparams["data_folder"]},
+            dynamic_items=[audio_pipeline],
+            output_keys=["mel_text_pair", "wav", "label"],
         )
-        hparams[f"{dataset}_dataloader_opts"]["shuffle"] = True
 
-
-    # Load or compute the label encoder
-    inp_enc_file = os.path.join(hparams["save_folder"], "input_encoder.txt")
-
-    # The blank symbol is used to indicate padding
-    special_labels = {"blank_label": hparams["blank_index"]}
-
-    input_encoder.load_or_create(
-        path=inp_enc_file,
-        from_didatasets=[datasets["train"]],
-        output_key="ignotush_chars",
-        special_labels=special_labels,
-        sequence_input=True,
-    )
-
-    # Load or compute the label encoder
-    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
-    special_labels = {
-        "blank_label": hparams["blank_index"],
-        "bos_label": hparams["bos_index"],
-        "eos_label": hparams["eos_index"],
-    }
-    label_encoder.load_or_create(
-        path=lab_enc_file,
-        from_didatasets=[datasets["train"]],
-        output_key="english_chars",
-        special_labels=special_labels,
-        sequence_input=True,
-    )
-
-    return datasets, label_encoder
+    return datasets
 
 
 if __name__ == "__main__":

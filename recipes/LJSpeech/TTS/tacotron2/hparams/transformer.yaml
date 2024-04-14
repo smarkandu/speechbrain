@@ -1,163 +1,245 @@
+############################################################################
+# Model: Tacotron2
+# Tokens: Raw characters (English text)
 # ############################################################################
-# Model: E2E with attention-based Machine Translation
-# Encoder: Transformer
-# Decoder: Transformer
-# Tokens: Chars
-# losses: NLL
-# Training: Ignotush
-##############################################################################
 
-# Seed needs to be set at top of yaml, before objects with parameters are instantiated
-seed: 1986
+###################################
+# Experiment Parameters and setup #
+###################################
+seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-
-# Folder set up
-output_folder: !PLACEHOLDER
-wer_file: !ref <output_folder>/wer.txt
+output_folder: !ref /content/results/tacotron2/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-cer_file: !ref <output_folder>/test_cer.txt # file were to store the final character error rate on the test set.
+epochs: 50
+keep_checkpoint_interval: 50
+
+###################################
+# Progress Samples                #
+###################################
+# Progress samples are used to monitor the progress
+# of an ongoing training session by outputting samples
+# of spectrograms, alignments, etc at regular intervals
+
+# Whether to enable progress samples
+progress_samples: True
+
+# The path where the samples will be stored
+progress_sample_path: !ref <output_folder>/samples
+# The interval, in epochs. For instance, if it is set to 5,
+# progress samples will be output every 5 epochs
+progress_samples_interval: 1
+# The sample size for raw batch samples saved in batch.pth
+# (useful mostly for model debugging)
+progress_batch_sample_size: 3
 
 #################################
 # Data files and pre-processing #
 #################################
 data_folder: !PLACEHOLDER # e.g, /localscratch/ljspeech
 
-# Path where data manifest files are stored
-train_annotation: train.json
-valid_annotation: valid.json
-test_annotation: test.json
+train_json: !ref <data_folder>/train.json
+valid_json: !ref <data_folder>/valid.json
+test_json: !ref <data_folder>/test.json
 
-# The train logger writes training statistics to a file, as well as stdout.
-train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
+splits: ["train", "valid", "test"]
+split_ratio: [80, 10, 10]
 
-# Training parameters
-number_of_epochs: 100
-batch_size: 100
-lr: 0.01
-lr_final: 0.001
+skip_prep: False
 
+# Use the original preprocessing from nvidia
+# The cleaners to be used (applicable to nvidia only)
+text_cleaners: ['english_cleaners']
 
-# Dataloader options
+################################
+# Audio Parameters             #
+################################
+sample_rate: 22050
+hop_length: 256
+win_length: 1024
+n_mel_channels: 80
+n_fft: 1024
+mel_fmin: 0.0
+mel_fmax: 8000.0
+mel_normalized: False
+power: 1
+norm: "slaney"
+mel_scale: "slaney"
+dynamic_range_compression: True
+
+################################
+# Optimization Hyperparameters #
+################################
+learning_rate: 0.001
+weight_decay: 0.000006
+batch_size: 16 #minimum 2
+mask_padding: True
+guided_attention_sigma: 0.2
+guided_attention_weight: 50.0
+guided_attention_weight_half_life: 10.
+guided_attention_hard_stop: 50
+gate_loss_weight: 1.0
+
+################################
+# Dataloader options           #
+################################
 train_dataloader_opts:
-    batch_size: !ref <batch_size>
+  batch_size: !ref <batch_size>
+  drop_last: False  #True #False
+  num_workers: 2
+  collate_fn: !new:speechbrain.lobes.models.Tacotron2.TextMelCollate
 
 valid_dataloader_opts:
-    batch_size: !ref <batch_size>
+  batch_size: !ref <batch_size>
+  num_workers: 2
+  collate_fn: !new:speechbrain.lobes.models.Tacotron2.TextMelCollate
 
 test_dataloader_opts:
-    batch_size: !ref <batch_size>
+  batch_size: !ref <batch_size>
+  num_workers: 2
+  collate_fn: !new:speechbrain.lobes.models.Tacotron2.TextMelCollate
 
+################################
+# Model Parameters and model   #
+################################
+n_symbols: 148 # fixed depending on symbols in textToSequence
+symbols_embedding_dim: 512
 
-# Vocabulary sizes
-voc_size_english: 31
-voc_size_ignotush: 32
+# Encoder parameters
+encoder_kernel_size: 5
+encoder_n_convolutions: 3
+encoder_embedding_dim: 512
 
-# Indexes for begin-of-sentence (bos)
-# and end-of-sentence (eos)
-blank_index: 0 # This special tokes is for padding
-bos_index: 1
-eos_index: 2
+# Decoder parameters
+# The number of frames in the target per encoder step
+n_frames_per_step: 1
+decoder_rnn_dim: 1024
+prenet_dim: 256
+max_decoder_steps: 1000
+gate_threshold: 0.5
+p_attention_dropout: 0.1
+p_decoder_dropout: 0.1
+decoder_no_early_stopping: False
 
-# Encoder Parameters
-d_model: 64
-nhead: 4
-num_encoder_layers: 1
-num_decoder_layers: 1
-dim_feedforward: 64
-dropout: 0.1
+# Attention parameters
+attention_rnn_dim: 1024
+attention_dim: 128
 
+# Location Layer parameters
+attention_location_n_filters: 32
+attention_location_kernel_size: 31
 
-# The first object passed to the Brain class is this "Epoch Counter"
-# which is saved by the Checkpointer so that training can be resumed
-# if it gets interrupted at any point.
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+# Mel-post processing network parameters
+postnet_embedding_dim: 512
+postnet_kernel_size: 5
+postnet_n_convolutions: 5
 
+mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
+  sample_rate: !ref <sample_rate>
+  hop_length: !ref <hop_length>
+  win_length: !ref <win_length>
+  n_fft: !ref <n_fft>
+  n_mels: !ref <n_mel_channels>
+  f_min: !ref <mel_fmin>
+  f_max: !ref <mel_fmax>
+  power: !ref <power>
+  normalized: !ref <mel_normalized>
+  norm: !ref <norm>
+  mel_scale: !ref <mel_scale>
+  compression: !ref <dynamic_range_compression>
 
-Seq2SeqTransformer: !new:torch.nn.Transformer
-    d_model: !ref <d_model>
+# Model Parameters
+drop_rate: 0.1
+num_blocks: 8
+intermediate_size: 512
+nhead: 16
+causal: False
+kernel_size: 3
+base_channels: 1024
+padding_type: same
+
+# model
+model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
+    d_model: !ref <base_channels> // 4
+    output_size: !ref <N_fft> // 2 + 1
+    output_activation: !name:torch.nn.Sigmoid
+    activation: !name:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    dropout: !ref <drop_rate>
+    num_layers: !ref <num_blocks>
+    d_ffn: !ref <intermediate_size>
     nhead: !ref <nhead>
-    num_encoder_layers: !ref <num_encoder_layers>
-    num_decoder_layers: !ref <num_decoder_layers>
-    dim_feedforward: !ref <dim_feedforward>
-    dropout: !ref <dropout>
-    batch_first: True
+    causal: !ref <causal>
+    custom_emb_module: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <N_fft> // 2 + 1]
+        conv1: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels>
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm1: !name:speechbrain.nnet.normalization.LayerNorm
+        act1: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv2: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 2
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm2: !name:speechbrain.nnet.normalization.LayerNorm
+        act2: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
+        conv3: !name:speechbrain.nnet.CNN.Conv1d
+            out_channels: !ref <base_channels> // 8
+            kernel_size: !ref <kernel_size>
+            padding: !ref <padding_type>
+        norm3: !name:speechbrain.nnet.normalization.LayerNorm
+        act3: !new:torch.nn.LeakyReLU
+            negative_slope: 0.01
 
+guided_attention_scheduler: !new:speechbrain.nnet.schedulers.StepScheduler
+  initial_value: !ref <guided_attention_weight>
+  half_life: !ref <guided_attention_weight_half_life>
 
-encoder_emb: !new:torch.nn.Embedding
-    num_embeddings: !ref <voc_size_ignotush>
-    embedding_dim: !ref <d_model>
-    padding_idx: !ref <blank_index>
+criterion: !new:speechbrain.lobes.models.Tacotron2.Loss
+  gate_loss_weight: !ref <gate_loss_weight>
+  guided_attention_weight: !ref <guided_attention_weight>
+  guided_attention_sigma: !ref <guided_attention_sigma>
+  guided_attention_scheduler: !ref <guided_attention_scheduler>
+  guided_attention_hard_stop: !ref <guided_attention_hard_stop>
 
-
-pos_emb_enc: !new:speechbrain.lobes.models.transformer.Transformer.PositionalEncoding
-    input_size: !ref <d_model>
-    max_len: 200
-
-pos_emb_dec: !new:speechbrain.lobes.models.transformer.Transformer.PositionalEncoding
-    input_size: !ref <d_model>
-    max_len: 200
-
-decoder_emb: !new:torch.nn.Embedding
-    num_embeddings: !ref <voc_size_english>
-    embedding_dim: !ref <d_model>
-    padding_idx: !ref <blank_index>
-
-# Linear transformation on the top of the decoder.
-seq_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <d_model>
-    n_neurons: !ref <voc_size_english>
-
-
-# Masks
-lookahead_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_lookahead_mask
-padding_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_key_padding_mask
-
-
-# Final softmax (for log posteriors computation).
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
-
-
-
-# Objects in "modules" dict will have their parameters moved to the correct
-# device, as well as having train()/eval() called on them by the Brain class
 modules:
-    Seq2SeqTransformer: !ref <Seq2SeqTransformer>
-    encoder_emb: !ref <encoder_emb>
-    pos_emb_enc: !ref <pos_emb_enc>
-    decoder_emb: !ref <decoder_emb>
-    pos_emb_dec: !ref <pos_emb_dec>
-    seq_lin: !ref <seq_lin>
+  model: !ref <model>
 
-
-# Gathering all the submodels in a single model object.
-model: !new:torch.nn.ModuleList
-    - - !ref <Seq2SeqTransformer>
-      - !ref <encoder_emb>
-      - !ref <seq_lin>
-      - !ref <decoder_emb>
-
-
-# This function manages learning rate annealing over the epochs.
-lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
-    initial_value: !ref <lr>
-    final_value: !ref <lr_final>
-    epoch_count: !ref <number_of_epochs>
-
-# This optimizer will be constructed by the Brain class after all parameters
-# are moved to the correct device. Then it will be added to the checkpointer.
+# optimizer
 opt_class: !name:torch.optim.Adam
-    lr: !ref <lr>
+  lr: !ref <learning_rate>
+  weight_decay: !ref <weight_decay>
 
-# This object is used for saving the state of training both so that it
-# can be resumed if it gets interrupted, and also so that the best checkpoint
-# can be later loaded for evaluation or inference.
+# epoch object
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>
+
+# annealing_function
+lr_annealing: !new:speechbrain.nnet.schedulers.IntervalScheduler
+  intervals:
+    - steps: 6000
+      lr: 0.0005
+    - steps: 8000
+      lr: 0.0003
+    - steps: 10000
+      lr: 0.0001
+
+# checkpointer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        model: !ref <model>
-        counter: !ref <epoch_counter>
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    counter: !ref <epoch_counter>
+    scheduler: !ref <lr_annealing>
 
+progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
+  output_path: !ref <progress_sample_path>
+  batch_sample_size: !ref <progress_batch_sample_size>
+  formats:
+    raw_batch: raw
