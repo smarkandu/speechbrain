@@ -60,9 +60,9 @@ class Tacotron2Brain(sb.Brain):
 
         text_padded, input_lengths, _, _, _ = inputs
         # text_padded, input_lengths, mel_padded, max_len, output_lengths
-        f = open("steve.txt", "a")
-        f.write("text_padded: " + str(text_padded.float().shape))
-        f.close()
+        # f = open("steve.txt", "a")
+        # # f.write("text_padded: " + str(text_padded.float().shape))
+        # f.close()
 
         max_input_length = input_lengths.max().item()
         return self.modules.model(text_padded.float())
