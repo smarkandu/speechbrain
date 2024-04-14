@@ -65,9 +65,9 @@ class Tacotron2Brain(sb.Brain):
         # Reshape input to satisfy pre-encoder
         input = text_padded.float()
         f = open("steve.txt", "a")
-        f.write("input shape before: " + input.shape + "\n")
+        f.write("input shape before: " + str(input.shape) + "\n")
         input = input.reshape(input.shape[0], 1, input.shape[1])
-        f.write("input shape after: " + input.shape + "\n")
+        f.write("input shape after: " + str(input.shape) + "\n")
         f.close()
 
         return self.modules.model(input)
