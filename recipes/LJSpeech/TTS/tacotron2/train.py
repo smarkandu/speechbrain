@@ -61,11 +61,11 @@ class Tacotron2Brain(sb.Brain):
         text_padded, input_lengths, _, _, _ = inputs
         # text_padded, input_lengths, mel_padded, max_len, output_lengths
         f = open("steve.txt", "a")
-        f.write("text_padded: " + str(type(text_padded)))
+        f.write("text_padded: " + str(type(text_padded.float())))
         f.close()
 
         max_input_length = input_lengths.max().item()
-        return self.modules.model(text_padded)
+        return self.modules.model(text_padded.float())
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """At the end of the optimizer step, apply noam annealing."""
