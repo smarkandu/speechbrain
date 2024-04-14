@@ -60,7 +60,7 @@ class Tacotron2Brain(sb.Brain):
 
         text_padded, input_lengths, _, _, _ = inputs
         # text_padded, input_lengths, mel_padded, max_len, output_lengths
-        print("text_padded: " + type(text_padded))
+        print("text_padded: " + str(type(text_padded)))
 
         max_input_length = input_lengths.max().item()
         return self.modules.model(text_padded)
