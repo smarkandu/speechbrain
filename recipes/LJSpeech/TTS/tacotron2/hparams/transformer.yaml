@@ -156,7 +156,7 @@ nhead: 16
 causal: False
 kernel_size: 3
 base_channels: 1024
-padding_type: same
+padding_type: valid
 
 # model
 model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
