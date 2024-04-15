@@ -62,10 +62,7 @@ class Tacotron2Brain(sb.Brain):
         text_padded, input_lengths, _, _, _ = inputs
         # text_padded, input_lengths, mel_padded, max_len, output_lengths
         # max_input_length = input_lengths.max().item()
-        n_symbols=148
-        symbols_embedding_dim=512
-        self.embedding = nn.Embedding(n_symbols, symbols_embedding_dim)
-        embedded_inputs = self.embedding(text_padded).transpose(1,2)
+        embedded_inputs = self.modules.encoder_emb(text_padded).transpose(1,2)
 
         return self.modules.model(embedded_inputs)
 

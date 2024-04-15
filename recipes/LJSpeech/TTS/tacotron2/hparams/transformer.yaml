@@ -110,6 +110,10 @@ encoder_kernel_size: 5
 encoder_n_convolutions: 3
 encoder_embedding_dim: 512
 
+encoder_emb: !new:torch.nn.Embedding
+    num_embeddings: !ref <n_symbols>
+    embedding_dim: !ref <encoder_embedding_dim>
+
 # Decoder parameters
 # The number of frames in the target per encoder step
 n_frames_per_step: 1
@@ -207,6 +211,7 @@ criterion: !new:speechbrain.lobes.models.Tacotron2.Loss
 
 modules:
   model: !ref <model>
+  encoder_emb: !ref <encoder_emb>
 
 # optimizer
 opt_class: !name:torch.optim.Adam
