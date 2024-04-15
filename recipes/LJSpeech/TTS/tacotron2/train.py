@@ -62,7 +62,11 @@ class Tacotron2Brain(sb.Brain):
         text_padded, input_lengths, _, _, _ = inputs
         # text_padded, input_lengths, mel_padded, max_len, output_lengths
         # max_input_length = input_lengths.max().item()
+        f = open("steve.txt", "a")
+        f.write("text_padded: " + str(text_padded.shape) + "\n")
         embedded_inputs = self.modules.encoder_emb(text_padded).transpose(1,2)
+        f.write("embedded_inputs: " + str(embedded_inputs.shape) + "\n")
+        f.close()
 
         return self.modules.model(embedded_inputs)
 
