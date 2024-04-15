@@ -65,7 +65,7 @@ class Tacotron2Brain(sb.Brain):
         n_symbols=148
         symbols_embedding_dim=512
         self.embedding = nn.Embedding(n_symbols, symbols_embedding_dim)
-        embedded_inputs = self.embedding(inputs).transpose(1,2)
+        embedded_inputs = self.embedding(text_padded).transpose(1,2)
 
         return self.modules.model(embedded_inputs)
 
