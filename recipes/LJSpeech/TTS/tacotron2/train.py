@@ -24,6 +24,7 @@ import logging
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.text_to_sequence import text_to_sequence
 from speechbrain.utils.data_utils import scalarize
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
