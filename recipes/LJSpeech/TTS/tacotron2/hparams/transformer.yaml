@@ -109,6 +109,7 @@ symbols_embedding_dim: 512
 encoder_kernel_size: 5
 encoder_n_convolutions: 3
 encoder_embedding_dim: 512
+encoder_hidden_size: 256
 
 encoder_emb: !new:torch.nn.Embedding
     num_embeddings: !ref <n_symbols>
@@ -177,7 +178,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
         input_shape: [null, null, null]  # Expected Input Tensor shape
         conv1: !name:speechbrain.nnet.CNN.Conv1d
             in_channels: !ref <encoder_embedding_dim>
-            out_channels: !ref <base_channels>
+            out_channels: !ref <encoder_hidden_size>
             kernel_size: !ref <kernel_size>
             padding: !ref <padding_type>
         norm1: !name:speechbrain.nnet.normalization.BatchNorm1d
@@ -185,8 +186,8 @@ model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
         drop1: !new:torch.nn.Dropout
           p: !ref <drop_rate>
         conv2: !name:speechbrain.nnet.CNN.Conv1d
-            in_channels: !ref <base_channels>
-            out_channels: !ref <base_channels>
+            in_channels: !ref <encoder_hidden_size>
+            out_channels: !ref <encoder_hidden_size>
             kernel_size: !ref <kernel_size>
             padding: !ref <padding_type>
         norm2: !name:speechbrain.nnet.normalization.BatchNorm1d
@@ -194,8 +195,8 @@ model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
         drop2: !new:torch.nn.Dropout
           p: !ref <drop_rate>
         conv3: !name:speechbrain.nnet.CNN.Conv1d
-            in_channels: !ref <base_channels>
-            out_channels: !ref <base_channels>
+            in_channels: !ref <encoder_hidden_size>
+            out_channels: !ref <encoder_hidden_size>
             kernel_size: !ref <kernel_size>
             padding: !ref <padding_type>
         norm3: !name:speechbrain.nnet.normalization.BatchNorm1d
