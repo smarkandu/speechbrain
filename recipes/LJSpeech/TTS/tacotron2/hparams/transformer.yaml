@@ -183,7 +183,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
         norm1: !name:speechbrain.nnet.normalization.BatchNorm1d
         act1: !new:torch.nn.ReLU
         drop1: !new:torch.nn.Dropout
-          p: !ref <dropout>
+          p: !ref <drop_rate>
         conv2: !name:speechbrain.nnet.CNN.Conv1d
             in_channels: !ref <base_channels>
             out_channels: !ref <base_channels>
@@ -192,7 +192,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
         norm2: !name:speechbrain.nnet.normalization.BatchNorm1d
         act2: !new:torch.nn.ReLU
         drop2: !new:torch.nn.Dropout
-          p: !ref <dropout>
+          p: !ref <drop_rate>
         conv3: !name:speechbrain.nnet.CNN.Conv1d
             in_channels: !ref <base_channels>
             out_channels: !ref <base_channels>
@@ -201,7 +201,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
         norm3: !name:speechbrain.nnet.normalization.BatchNorm1d
         act3: !new:torch.nn.ReLU
         drop3: !new:torch.nn.Dropout
-          p: !ref <dropout>
+          p: !ref <drop_rate>
 
 guided_attention_scheduler: !new:speechbrain.nnet.schedulers.StepScheduler
   initial_value: !ref <guided_attention_weight>
