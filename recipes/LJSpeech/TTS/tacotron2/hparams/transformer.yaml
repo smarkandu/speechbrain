@@ -176,7 +176,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
     custom_emb_module: !new:speechbrain.nnet.containers.Sequential
         input_shape: [null, null, null]  # Expected Input Tensor shape
         conv1: !name:speechbrain.nnet.CNN.Conv1d
-            in_channels: !ref <embedding_dim>
+            in_channels: !ref <encoder_embedding_dim>
             out_channels: !ref <base_channels>
             kernel_size: !ref <kernel_size>
             padding: !ref <padding_type>
